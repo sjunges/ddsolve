@@ -18,7 +18,6 @@
  *       basis. No lines of logic in this file were written or modified by AI.
  */
 
-#include <bits/ranges_base.h>
 #include <xxhash.h>
 
 #include <concepts>
@@ -28,8 +27,22 @@
 #include <ranges>
 #include <span>
 #include <utility>
+#include <version>
 
 namespace ddsolve {
+
+// Apple libc++ lacks std::ranges::const_iterator_t.
+#ifdef __cpp_lib_ranges_as_const
+template <class R>
+using const_iterator_t = std::ranges::const_iterator_t<const R&>;
+template <class R>
+using const_sentinel_t = std::ranges::const_sentinel_t<const R&>;
+#else
+template <class R>
+using const_iterator_t = std::ranges::iterator_t<const R&>;
+template <class R>
+using const_sentinel_t = std::ranges::sentinel_t<const R&>;
+#endif
 
 /**
  * @brief Functor that dereferences pointer-like types.
@@ -365,10 +378,10 @@ class MergeIterator {
 
 template <class R1, class R2, class Comp = std::ranges::less>
 MergeIterator(const R1&, const R2&, Comp = {})
-    -> MergeIterator<std::ranges::const_iterator_t<const R1&>,
-                     std::ranges::const_sentinel_t<const R1&>,
-                     std::ranges::const_iterator_t<const R2&>,
-                     std::ranges::const_sentinel_t<const R2&>, Comp>;
+    -> MergeIterator<const_iterator_t<R1>,
+                     const_sentinel_t<R1>,
+                     const_iterator_t<R2>,
+                     const_sentinel_t<R2>, Comp>;
 
 static_assert(std::forward_iterator<
               decltype(MergeIterator(std::vector<int>{}, std::vector<int>{}))>);
@@ -392,10 +405,10 @@ class MergeView : public std::ranges::view_interface<MergeView<R1, R2, Comp>> {
    * @brief The const iterator type for traversing the merged range.
    */
   using const_iterator =
-      MergeIterator<std::ranges::const_iterator_t<const R1&>,
-                    std::ranges::const_sentinel_t<const R1&>,
-                    std::ranges::const_iterator_t<const R2&>,
-                    std::ranges::const_sentinel_t<const R2&>, Comp>;
+      MergeIterator<const_iterator_t<R1>,
+                    const_sentinel_t<R1>,
+                    const_iterator_t<R2>,
+                    const_sentinel_t<R2>, Comp>;
 
   /**
    * @brief Construct a MergeView from two ranges and a comparator.

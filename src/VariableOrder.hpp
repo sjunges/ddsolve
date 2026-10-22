@@ -358,7 +358,7 @@ class VariableOrder {
       // realloc would take place...
       collectGarbidge();
     }
-    references_.push_back(mbdd);
+    references_.push_back(mtbdd);
   }
 
   /**

@@ -37,12 +37,12 @@ else()
 endif()
 
 find_package(PkgConfig REQUIRED)
-pkg_check_modules(xxhash REQUIRED libxxhash)
+pkg_check_modules(xxhash REQUIRED IMPORTED_TARGET libxxhash)
 
 
 add_library(ddsolve_obj OBJECT src/smt/smt.cpp src/XADD.cpp src/sylvan/sylvan_ddsolve.c src/sylvan/SylvanInterface.cpp src/smt/SmtTerm.cpp)
-target_link_libraries(ddsolve_obj PUBLIC sylvan::sylvan gmpxx xxhash ${SMT_LIBS})
-target_include_directories(ddsolve_obj PUBLIC src/)
+target_link_libraries(ddsolve_obj PUBLIC sylvan::sylvan ${GMPXX_LIBRARIES} ${GMP_LIBRARIES} PkgConfig::xxhash ${SMT_LIBS})
+target_include_directories(ddsolve_obj PUBLIC src/ ${GMP_INCLUDE_DIR} ${GMPXX_INCLUDE_DIR})
 set_property(TARGET ddsolve_obj PROPERTY CXX_STANDARD 23)
 set_property(TARGET ddsolve_obj PROPERTY POSITION_INDEPENDENT_CODE TRUE)
 
@@ -56,8 +56,8 @@ if(NOT SKBUILD)
             ${CMAKE_CURRENT_SOURCE_DIR}/src/ddsolve/_ddsolve.pyi
     )
 endif()
-target_link_libraries(_ddsolve PUBLIC sylvan::sylvan gmpxx xxhash ${SMT_LIBS})
-target_include_directories(_ddsolve PUBLIC src/)
+target_link_libraries(_ddsolve PUBLIC sylvan::sylvan ${GMPXX_LIBRARIES} ${GMP_LIBRARIES} PkgConfig::xxhash ${SMT_LIBS})
+target_include_directories(_ddsolve PUBLIC src/ ${GMP_INCLUDE_DIR} ${GMPXX_INCLUDE_DIR})
 set_property(TARGET _ddsolve PROPERTY CXX_STANDARD 23)
 
 #set_property(TARGET _ddsolve PROPERTY LINK_FLAGS -ltcmalloc)

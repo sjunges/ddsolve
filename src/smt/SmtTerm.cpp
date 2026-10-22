@@ -16,7 +16,7 @@
 
 #include <cvc5/cvc5.h>
 #include <cvc5/cvc5_parser.h>
-#include <sys/sdt.h>
+#include "probes.hpp"
 
 #include <algorithm>
 #include <memory>

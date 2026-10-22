@@ -14,7 +14,7 @@
  *       basis. No lines of logic in this file were written or modified by AI.
  */
 
-#include <sys/sdt.h>
+#include "probes.hpp"
 
 #include <algorithm>
 #include <atomic>
@@ -24,6 +24,7 @@
 #include <ranges>
 #include <set>
 #include <syncstream>
+#include <version>
 
 #include "ArithmeticTypes.hpp"
 #include "LinearTerm.hpp"
@@ -161,7 +162,11 @@ class State {
 #endif
       std::vector<Expression> variables{std::views::values(variables_) |
                                         std::ranges::to<std::vector>()};
+#ifdef __cpp_lib_syncbuf
       std::osyncstream oss{std::cout};
+#else
+      std::ostream& oss{std::cout};
+#endif
 
       oss << "{\n";
       // is_first hack is ugly

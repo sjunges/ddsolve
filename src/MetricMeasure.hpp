@@ -108,7 +108,8 @@ class MetricMeasure {
   void print() {
     // Not threadsafe!
 
-    for (auto&& [tid, i] : std::views::enumerate(data_)) {
+    for (std::size_t tid = 0; tid < data_.size(); ++tid) {
+      auto&& i = data_[tid];
       if (i) {
         for (auto&& t : *i) {
           if (t.tv_sec == 0) {
@@ -135,7 +136,8 @@ class MetricMeasure {
     auto file{std::ofstream{"/tmp/data.txt",
                             std::ios_base::out | std::ios_base::trunc}};
 
-    for (auto&& [tid, i] : std::views::enumerate(data_)) {
+    for (std::size_t tid = 0; tid < data_.size(); ++tid) {
+      auto&& i = data_[tid];
       if (i) {
         for (auto&& t : *i) {
           if (t.tv_sec == 0) {
