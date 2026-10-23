@@ -22,10 +22,13 @@
  *       basis. No lines of logic in this file were written or modified by AI.
  */
 
+#include <gmpxx.h>
+
 #include <cstdio>
 #include <memory>
 #include <stdexcept>
 #include <sylvan_obj.hpp>
+#include <unordered_map>
 
 #include "LinearTerm.hpp"
 #include "VariableOrder.hpp"
@@ -198,6 +201,32 @@ class XDD {
    */
   [[nodiscard]] size_t getNodeCount() {
     return getMtbdd().NodeCount();
+  }
+
+  /**
+   * @brief Get the number of cases of the diagram.
+   * @return Number of root-to-leaf paths, i.e., the number of leaves of the
+   *         tree obtained by unfolding all sharing of the underlying MTBDD.
+   *
+   * This is the number of cases of the case expression the diagram represents,
+   * without merging cases that share a value. It can be exponentially larger
+   * than the node count.
+   */
+  [[nodiscard]] mpz_class getCaseCount() const {
+    std::unordered_map<decltype(getMtbdd().GetMTBDD()), mpz_class> memo;
+    auto count = [&memo](auto&& self, auto node) -> mpz_class {
+      if (sylvan::mtbdd_isleaf(node)) {
+        return 1;
+      }
+      if (const auto it{memo.find(node)}; it != memo.end()) {
+        return it->second;
+      }
+      mpz_class cases{self(self, sylvan::mtbdd_getlow(node)) +
+                      self(self, sylvan::mtbdd_gethigh(node))};
+      memo.emplace(node, cases);
+      return cases;
+    };
+    return count(count, getMtbdd().GetMTBDD());
   }
 
   /**
