@@ -1,22 +1,13 @@
 """Replay the TEDD scaling data points for the BRP and Rabin benchmarks.
 
-For every instance we run the verifier on a single thread and report
+For every instance we run the verifier on a single thread and report the running time,
+the number of k-induction iterations, the nodes of the largest TEDD before pruning (peak)
+and of the final TEDD, and the number of cases of the largest TEDD (the leaves of the tree
+obtained by unfolding all sharing).
 
-  * wall-clock time and number of k-induction iterations,
-  * nodes of the largest TEDD before pruning (``peak``) and of the final TEDD (``final``),
-  * the number of cases of the case expression that corresponds to the peak TEDD, i.e.,
-    the number of leaves of the tree obtained by unfolding all sharing (``cases``).
-
-Usage (from the repository root):
-
-    python bench/scaling.py                       # quick preset, seconds
-    python bench/scaling.py --preset paper        # all data points quoted in the paper
-    python bench/scaling.py --brp 10 20 --rabin 3 # custom sizes
-    python bench/scaling.py --csv out.csv
+Usage (from the repository root): python bench/scaling.py
 """
 
-import argparse
-import csv
 import os
 import sys
 import time
@@ -27,7 +18,11 @@ sys.setrecursionlimit(10_000_000)
 
 from ddsolve._ddsolve import VariableOrder  # noqa: E402
 from ddsolve.parser import parse  # noqa: E402
-import ddsolve.wp as wp  # noqa: E402
+from ddsolve.wp import Verifier  # noqa: E402
+
+# BRP: the bound n on toSend. Rabin: the precision p of the bound 5/7 + 10^-p.
+BRP_SIZES = [10, 20, 30, 40, 50]
+RABIN_SIZES = [1, 2, 3, 5, 7, 10]
 
 BRP = """\
 // wp <= ite(toSend <= {n}, totalFailed + 10, infty)
@@ -64,86 +59,26 @@ while(1<i | phase==1){{
 // ite(i == 1, 1, 0)
 """
 
-PRESETS = {
-    "quick": {"brp": [5, 10, 15, 20], "rabin": [1, 2, 3, 5]},
-    "paper": {"brp": [10, 20, 30, 40, 50], "rabin": [1, 2, 3, 5, 7, 10]},
-}
 
-
-def program(bench, size):
-    """Source text of the benchmark ``bench`` at parameter ``size``."""
-    if bench == "brp":
-        return BRP.format(n=size)
-    return RABIN.format(p=10**size)
-
-
-def run(bench, size, cases):
-    """Verify one instance and return its measurements."""
+def run(name, source):
     order = VariableOrder()
-    ast, _ = parse(program(bench, size), order)
-    verifier = wp.Verifier(order)
+    ast, _ = parse(source, order)
+    verifier = Verifier(order)
 
     start = time.perf_counter()
-    result = verifier.verify(ast)
+    verifier.verify(ast)
     seconds = time.perf_counter() - start
 
-    return {
-        "bench": bench,
-        "size": size,
-        "result": result,
-        "seconds": round(seconds, 2),
-        "iterations": verifier.iterations,
-        "peak": verifier.peak_nodecount,
-        "final": verifier.post_expectation.get_nodecount(),
-        "cases": verifier.peak_case_count if cases else None,
-    }
-
-
-def main():
-    parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    parser.add_argument("--preset", choices=PRESETS, default="quick")
-    parser.add_argument("--brp", type=int, nargs="*", metavar="N", help="BRP bounds n")
-    parser.add_argument(
-        "--rabin", type=int, nargs="*", metavar="P", help="Rabin precisions"
+    print(
+        f"{name:10} {seconds:8.2f} {verifier.iterations:6d} "
+        f"{verifier.peak_nodecount:9d} {verifier.post_expectation.get_nodecount():7d} "
+        f"{verifier.peak_case_count:>20}",
+        flush=True,
     )
-    parser.add_argument(
-        "--no-cases", action="store_true", help="skip the case count of the peak TEDD"
-    )
-    parser.add_argument("--csv", metavar="FILE", help="also write the table as CSV")
-    args = parser.parse_args()
-
-    sizes = {
-        "brp": PRESETS[args.preset]["brp"] if args.brp is None else args.brp,
-        "rabin": PRESETS[args.preset]["rabin"] if args.rabin is None else args.rabin,
-    }
-
-    header = f"{'bench':6} {'size':>4} {'result':>6} {'time[s]':>8} {'iters':>5} {'peak':>9} {'final':>7} {'cases':>16}"
-    print(f"threads: LACE_WORKERS={os.environ['LACE_WORKERS']}")
-    print(header)
-    rows = []
-    for bench, values in sizes.items():
-        for size in values:
-            row = run(bench, size, not args.no_cases)
-            rows.append(row)
-            print(
-                f"{bench:6} {size:4d} {str(row['result']):>6} {row['seconds']:8.2f} "
-                f"{row['iterations']:5d} {row['peak']:9d} {row['final']:7d} "
-                f"{row['cases'] if row['cases'] is not None else '-':>16}",
-                flush=True,
-            )
-
-    if args.csv:
-        with open(args.csv, "w", newline="") as f:
-            writer = csv.DictWriter(
-                f,
-                fieldnames=[
-                    "bench", "size", "result", "seconds", "iterations",
-                    "peak", "final", "cases",
-                ],
-            )
-            writer.writeheader()
-            writer.writerows(rows)
 
 
-if __name__ == "__main__":
-    main()
+print(f"{'instance':10} {'time[s]':>8} {'iters':>6} {'peak':>9} {'final':>7} {'cases':>20}")
+for n in BRP_SIZES:
+    run(f"brp {n}", BRP.format(n=n))
+for p in RABIN_SIZES:
+    run(f"rabin {p}", RABIN.format(p=10**p))
