@@ -39,6 +39,24 @@ class Verifier(Interpreter):
         self.one = xadd.get_one()
         self.infty = xadd.get_infty()
         self.verified = "Unknown"
+        self.iterations = 0
+        self.peak_nodecount = 0
+        self.peak_case_count = 0
+
+    def _prune(self, expectation):
+        """Prune an expectation and record the largest size seen before pruning.
+
+        Args:
+            expectation: The XADD to prune.
+
+        Returns:
+            The pruned XADD.
+        """
+        nodecount = expectation.get_nodecount()
+        if nodecount > self.peak_nodecount:
+            self.peak_nodecount = nodecount
+            self.peak_case_count = expectation.get_case_count()
+        return expectation.prune_full()
 
     def _expectation(self, exp):
         """Extract the expectation XADD from an expression or expectation_pair.
@@ -182,7 +200,7 @@ class Verifier(Interpreter):
         with ddsolve.LaceManager() as m:
             self.visit(statements)
 
-            self.post_expectation = self.post_expectation.prune_full()
+            self.post_expectation = self._prune(self.post_expectation)
 
             with ddsolve.PrintModelsManager() as m:
                 match comperator:
@@ -335,12 +353,12 @@ class Verifier(Interpreter):
         """
         var = tree.children[0]
         tmp = self.zero
-        self.post_expectation = self.post_expectation.prune_full()
+        self.post_expectation = self._prune(self.post_expectation)
         for prob, value in tree.children[1]:
             tmp = tmp + self.post_expectation.substitute(var, value).scale(
                 f"{prob[0]}/{prob[1]}"
             )
-            tmp = tmp.prune_full()
+            tmp = self._prune(tmp)
         self.post_expectation = tmp
         if self.runtime:
             self.post_expectation = self.post_expectation + self.one
@@ -386,12 +404,13 @@ class Verifier(Interpreter):
         last_expectation = None
         self.post_expectation = self.one if self.liberal else self.zero
         for i in generator:
+            self.iterations += 1
             last_expectation = self.post_expectation
             self.visit(loop_body)
             self.post_expectation = loop_guard.ite(
                 self.post_expectation, initial_expectation
             )
-            self.post_expectation = self.post_expectation.prune_full()
+            self.post_expectation = self._prune(self.post_expectation)
             if self.runtime:
                 self.post_expectation = self.post_expectation + self.one
             if self.post_expectation == last_expectation:
@@ -428,6 +447,7 @@ class Verifier(Interpreter):
 
         self.post_expectation = invariant
         for i in generator:
+            self.iterations += 1
             # unrolled kinduction
             for _ in range(m):
                 self.visit(loop_body)
@@ -436,7 +456,7 @@ class Verifier(Interpreter):
                 )
                 if self.runtime:
                     self.post_expectation = self.post_expectation + self.one
-                self.post_expectation = self.post_expectation.prune_full()
+                self.post_expectation = self._prune(self.post_expectation)
 
             if self.liberal:
                 if invariant <= self.post_expectation:
@@ -449,7 +469,7 @@ class Verifier(Interpreter):
                 if take_extremum:
                     self.post_expectation = self.post_expectation.min(invariant)
 
-            self.post_expectation = self.post_expectation.prune_full()
+            self.post_expectation = self._prune(self.post_expectation)
 
         print("Warning: Could not prove the given invariant with kinduction!")
         self.visit(loop_body)
@@ -458,7 +478,7 @@ class Verifier(Interpreter):
         )
         if self.runtime:
             self.post_expectation = self.post_expectation + self.one
-        self.post_expectation = self.post_expectation.prune_full()
+        self.post_expectation = self._prune(self.post_expectation)
         #self.post_expectation = self.zero if self.liberal else self.infty
 
     def while_(self, tree):

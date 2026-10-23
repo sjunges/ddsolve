@@ -143,6 +143,18 @@ int64_t getIntegerEnvironmentVariable(const char* env_var, long default_) {
   return default_;
 }
 
+/**
+ * @brief Number of cases of a diagram as an arbitrary-precision Python integer.
+ * @tparam Diagram  The diagram type.
+ * @param diagram  The diagram to count the cases of.
+ * @return The value of Diagram::getCaseCount() as a Python int.
+ */
+template <typename Diagram>
+nanobind::object caseCountToPython(const Diagram& diagram) {
+  const auto digits{diagram.getCaseCount().get_str()};
+  return nanobind::steal(PyLong_FromString(digits.c_str(), nullptr, 10));
+}
+
 }  // namespace
 
 // The NB_MODULE macro is outside our controll, so no linting wanted
@@ -381,6 +393,7 @@ NB_MODULE(_ddsolve, m) {  // NOLINT
       .def("is_true", &LinearXADD::isTrue)
       .def("is_false", &LinearXADD::isFalse)
       .def("get_nodecount", &LinearXADD::getNodeCount)
+      .def("get_case_count", &caseCountToPython<LinearXADD>)
       .def("with_order", &LinearXADD::withOrder)
       .def("get_order", &LinearXADD::getOrder)
       .def("substitute", &LinearXADD::substitute,
@@ -528,6 +541,7 @@ NB_MODULE(_ddsolve, m) {  // NOLINT
       .def("is_true", &SmtXADD::isTrue)
       .def("is_false", &SmtXADD::isFalse)
       .def("get_nodecount", &SmtXADD::getNodeCount)
+      .def("get_case_count", &caseCountToPython<SmtXADD>)
       .def("with_order", &SmtXADD::withOrder)
       .def("get_order", &SmtXADD::getOrder)
       .def("substitute", &SmtXADD::substitute,
